@@ -13,9 +13,22 @@ class TaskController extends Controller
      */
     public function index(Request $request)
     {
-        return response()->json(
-            $request->user()->tasks()->latest()->get()
-        );
+        $request->validate([
+            'status' => 'nullable|in:all,todo,in_progress,done',
+            'search' => 'nullable|string|max:100',
+        ]);
+
+        $query = $request->user()->tasks()->latest();
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        return response()->json($query->get());
     }
 
     /**

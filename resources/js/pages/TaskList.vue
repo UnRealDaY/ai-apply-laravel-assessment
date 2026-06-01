@@ -16,13 +16,39 @@
       </div>
     </div>
 
+    <!-- Filters -->
+    <div class="mt-4 flex flex-col sm:flex-row gap-3">
+      <select
+        v-model="status"
+        class="block px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+      >
+        <option value="all">All statuses</option>
+        <option value="todo">To Do</option>
+        <option value="in_progress">In Progress</option>
+        <option value="done">Done</option>
+      </select>
+      <input
+        v-model="search"
+        type="text"
+        placeholder="Search by name…"
+        class="block flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+      />
+      <button
+        v-if="status !== 'all' || search"
+        @click="clearFilters"
+        class="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors"
+      >
+        Clear
+      </button>
+    </div>
+
     <!-- Loading state -->
     <div v-if="loading" class="mt-10 flex justify-center">
       <div class="text-gray-400 text-sm">Loading tasks…</div>
     </div>
 
-    <!-- Empty state -->
-    <div v-else-if="tasks.length === 0" class="mt-10 text-center py-16 bg-white rounded-xl border-2 border-dashed border-gray-200">
+    <!-- Empty state: no tasks at all -->
+    <div v-else-if="tasks.length === 0 && !status && !search" class="mt-10 text-center py-16 bg-white rounded-xl border-2 border-dashed border-gray-200">
       <p class="text-gray-500 font-medium">No tasks yet.</p>
       <p class="text-gray-400 text-sm mt-1">Get started by creating your first task.</p>
       <router-link
@@ -31,6 +57,14 @@
       >
         Create task
       </router-link>
+    </div>
+
+    <!-- Empty state: filters returned nothing -->
+    <div v-else-if="tasks.length === 0" class="mt-10 text-center py-16 bg-white rounded-xl border-2 border-dashed border-gray-200">
+      <p class="text-gray-500 font-medium">No tasks match your filters.</p>
+      <button @click="clearFilters" class="mt-3 text-sm text-primary-600 hover:text-primary-800 font-medium">
+        Clear filters
+      </button>
     </div>
 
     <!-- Task table -->
@@ -98,18 +132,25 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '../composables/useApi.js';
 
 const router = useRouter();
 const tasks = ref([]);
 const loading = ref(true);
+const status = ref('all');
+const search = ref('');
 
 const fetchTasks = async () => {
   loading.value = true;
   try {
-    const response = await api.get('/tasks');
+    const response = await api.get('/tasks', {
+      params: {
+        status: status.value !== 'all' ? status.value : undefined,
+        search: search.value || undefined,
+      },
+    });
     tasks.value = response.data;
   } catch (err) {
     console.error('Failed to fetch tasks:', err);
@@ -117,6 +158,19 @@ const fetchTasks = async () => {
     loading.value = false;
   }
 };
+
+const clearFilters = () => {
+  status.value = 'all';
+  search.value = '';
+};
+
+watch(status, fetchTasks);
+
+let searchTimer = null;
+watch(search, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(fetchTasks, 300);
+});
 
 const deleteTask = async (id) => {
   if (!confirm('Delete this task? This cannot be undone.')) return;
