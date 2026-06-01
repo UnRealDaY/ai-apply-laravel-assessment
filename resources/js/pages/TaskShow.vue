@@ -134,9 +134,11 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '../composables/useApi.js';
+import { useToast } from '../composables/useToast.js';
 
 const route = useRoute();
 const router = useRouter();
+const { add: addToast } = useToast();
 
 const task = ref(null);
 const loading = ref(true);
@@ -245,6 +247,10 @@ onMounted(() => {
       if (!comments.value.find(c => c.id === e.comment.id)) {
         comments.value.unshift(e.comment);
       }
+      const preview = e.comment.body.length > 50
+        ? e.comment.body.slice(0, 50) + '…'
+        : e.comment.body;
+      addToast(`${e.comment.user.name} commented: "${preview}"`);
     });
 });
 

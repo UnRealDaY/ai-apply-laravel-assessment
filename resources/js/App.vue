@@ -68,18 +68,47 @@
         <router-view />
       </div>
     </main>
+
+    <!-- Toast notifications -->
+    <div class="fixed bottom-5 right-5 z-50 flex flex-col gap-2">
+      <transition-group name="toast">
+        <div
+          v-for="toast in toasts"
+          :key="toast.id"
+          class="flex items-start gap-3 bg-gray-900 text-white text-sm px-4 py-3 rounded-lg shadow-lg max-w-sm cursor-pointer"
+          @click="remove(toast.id)"
+        >
+          <span class="mt-0.5">💬</span>
+          <span>{{ toast.message }}</span>
+        </div>
+      </transition-group>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { useRouter } from 'vue-router';
 import { useAuth } from './composables/useAuth.js';
+import { useToast } from './composables/useToast.js';
 
 const router = useRouter();
 const { isAuthenticated, user, logout } = useAuth();
+const { toasts, remove } = useToast();
 
 const handleLogout = async () => {
   await logout();
   router.push({ name: 'Login' });
 };
 </script>
+
+<style scoped>
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(1rem);
+}
+</style>
