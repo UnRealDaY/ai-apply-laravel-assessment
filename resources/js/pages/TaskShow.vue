@@ -131,7 +131,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '../composables/useApi.js';
 
@@ -167,10 +167,9 @@ const submitComment = async () => {
   }
   commentSubmitting.value = true;
   try {
-    const response = await api.post(`/tasks/${route.params.id}/comments`, {
+    await api.post(`/tasks/${route.params.id}/comments`, {
       body: newComment.value.trim(),
     });
-    comments.value.unshift(response.data);
     newComment.value = '';
   } catch (err) {
     commentError.value = err.response?.data?.errors?.body?.[0]
@@ -240,5 +239,16 @@ const formatDate = (dateStr) => {
 onMounted(() => {
   fetchTask();
   fetchComments();
+
+  window.Echo.private(`tasks.${route.params.id}`)
+    .listen('.comment.posted', (e) => {
+      if (!comments.value.find(c => c.id === e.comment.id)) {
+        comments.value.unshift(e.comment);
+      }
+    });
+});
+
+onUnmounted(() => {
+  window.Echo.leave(`tasks.${route.params.id}`);
 });
 </script>
