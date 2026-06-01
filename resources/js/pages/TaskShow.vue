@@ -82,12 +82,49 @@
         </div>
       </div>
 
-      <!-- Comments placeholder -->
-      <div class="mt-6 bg-white rounded-xl shadow-sm border border-dashed border-gray-300 p-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-2">Comments</h2>
-        <p class="text-gray-400 text-sm italic">
-          💬 Comments feature is not implemented yet — this is one of the assessment tasks for you to build!
-        </p>
+      <!-- Comments -->
+      <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">Comments</h2>
+
+        <!-- Comment list -->
+        <div v-if="commentsLoading" class="text-sm text-gray-400">Loading comments…</div>
+        <div v-else-if="comments.length === 0" class="text-sm text-gray-400 italic">No comments yet. Be the first!</div>
+        <ul v-else class="space-y-4 mb-6">
+          <li v-for="comment in comments" :key="comment.id" class="flex gap-3">
+            <div class="shrink-0 w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm">
+              {{ comment.user.name.charAt(0).toUpperCase() }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-baseline gap-2">
+                <span class="text-sm font-medium text-gray-900">{{ comment.user.name }}</span>
+                <span class="text-xs text-gray-400">{{ formatDate(comment.created_at) }}</span>
+              </div>
+              <p class="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{{ comment.body }}</p>
+            </div>
+          </li>
+        </ul>
+
+        <!-- Add comment form -->
+        <form @submit.prevent="submitComment" class="mt-4 space-y-3">
+          <textarea
+            v-model="newComment"
+            rows="3"
+            placeholder="Write a comment…"
+            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+            :class="commentError ? 'border-red-400 focus:ring-red-400 focus:border-red-400' : ''"
+          ></textarea>
+          <p v-if="commentError" class="text-xs text-red-600">{{ commentError }}</p>
+          <div class="flex justify-end">
+            <button
+              type="submit"
+              :disabled="commentSubmitting"
+              class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <span v-if="commentSubmitting">Posting…</span>
+              <span v-else>Post comment</span>
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -103,6 +140,46 @@ const router = useRouter();
 
 const task = ref(null);
 const loading = ref(true);
+
+const comments = ref([]);
+const commentsLoading = ref(true);
+const newComment = ref('');
+const commentSubmitting = ref(false);
+const commentError = ref('');
+
+const fetchComments = async () => {
+  commentsLoading.value = true;
+  try {
+    const response = await api.get(`/tasks/${route.params.id}/comments`);
+    comments.value = response.data;
+  } catch (err) {
+    console.error('Failed to fetch comments:', err);
+  } finally {
+    commentsLoading.value = false;
+  }
+};
+
+const submitComment = async () => {
+  commentError.value = '';
+  if (!newComment.value.trim()) {
+    commentError.value = 'Comment cannot be empty.';
+    return;
+  }
+  commentSubmitting.value = true;
+  try {
+    const response = await api.post(`/tasks/${route.params.id}/comments`, {
+      body: newComment.value.trim(),
+    });
+    comments.value.unshift(response.data);
+    newComment.value = '';
+  } catch (err) {
+    commentError.value = err.response?.data?.errors?.body?.[0]
+      ?? err.response?.data?.message
+      ?? 'Failed to post comment.';
+  } finally {
+    commentSubmitting.value = false;
+  }
+};
 
 const fetchTask = async () => {
   loading.value = true;
@@ -160,5 +237,8 @@ const formatDate = (dateStr) => {
   return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
-onMounted(fetchTask);
+onMounted(() => {
+  fetchTask();
+  fetchComments();
+});
 </script>
